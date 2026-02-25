@@ -1,41 +1,57 @@
-# Prerequisites
-*.d
+# Unreal Engine generated files
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Packaged*/
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# Visual Studio / Rider
+.vs/
+.idea/
+*.VC.db
+*.VC.opendb
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
 
-# Precompiled Headers
-*.gch
-*.pch
+# Build logs and temp files
+*.log
+*.tmp
+*.temp
 
-# Linker files
-*.ilk
+# OS cruft
+Thumbs.db
+Desktop.ini
 
-# Debugger Files
-*.pdb
+# Source-only repository policy (no cooked/runtime assets)
+Content/
+Plugins/*/Content/
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
+# Unreal binary asset formats
+*.uasset
+*.umap
+*.ubulk
+*.uexp
 
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-
-# debug information files
-*.dwo
+# Common binary/media artifacts
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.tga
+*.dds
+*.ico
+*.wav
+*.ogg
+*.mp3
+*.flac
+*.mp4
+*.mov
+*.avi
+*.zip
+*.7z
+*.rar
+*.pdf
