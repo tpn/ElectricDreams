@@ -135,6 +135,10 @@
 			"Enabled": true
 		},
 		{
+			"Name": "OpenXR",
+			"Enabled": true
+		},
+		{
 			"Name": "ChaosFlesh",
 			"Enabled": true
 		},

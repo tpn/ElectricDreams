@@ -6,10 +6,33 @@
 #include "Components/SphereComponent.h"
 #include "GameFramework/WorldSettings.h"
 #include "GameFramework/PlayerController.h"
+#include "HAL/IConsoleManager.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(HoverDronePawnBase)
 
 DEFINE_LOG_CATEGORY(LogHoverDrone)
+
+namespace HoverDroneLookInputScale
+{
+	constexpr float MinLookRateMultiplier = 1.0e-2f;
+	constexpr float MaxLookRateMultiplier = 1.0e2f;
+
+	float GetEffectiveLookMultiplier()
+	{
+		float LookRateMultiplier = 1.0f;
+
+		if (const IConsoleVariable* LookRateCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("HoverDrone.LookRateMultiplier")))
+		{
+			LookRateMultiplier = FMath::Clamp(
+				LookRateCVar->GetFloat(),
+				MinLookRateMultiplier,
+				MaxLookRateMultiplier
+			);
+		}
+
+		return LookRateMultiplier;
+	}
+}
 
 const FName AHoverDronePawnBase::CameraComponentName(TEXT("CameraComponent0"));
 
@@ -52,9 +75,19 @@ void AHoverDronePawnBase::SetupPlayerInputComponent(UInputComponent* InInputComp
 		InInputComponent->BindAxis("MoveRight", this, &ADefaultPawn::MoveRight);
 		//NEEDED - JB
 		InInputComponent->BindAxis("MoveUp", this, &ADefaultPawn::MoveUp_World);
-		InInputComponent->BindAxis("Turn", this, &ADefaultPawn::AddControllerYawInput);
-		InInputComponent->BindAxis("LookUp", this, &ADefaultPawn::AddControllerPitchInput);
+		InInputComponent->BindAxis("Turn", this, &AHoverDronePawnBase::ApplyTurnInputScaled);
+		InInputComponent->BindAxis("LookUp", this, &AHoverDronePawnBase::ApplyLookInputScaled);
 	}
+}
+
+void AHoverDronePawnBase::ApplyTurnInputScaled(float Rate)
+{
+	AddControllerYawInput(Rate * HoverDroneLookInputScale::GetEffectiveLookMultiplier());
+}
+
+void AHoverDronePawnBase::ApplyLookInputScaled(float Rate)
+{
+	AddControllerPitchInput(Rate * HoverDroneLookInputScale::GetEffectiveLookMultiplier());
 }
 
 void AHoverDronePawnBase::TurnAtRate(float Rate)

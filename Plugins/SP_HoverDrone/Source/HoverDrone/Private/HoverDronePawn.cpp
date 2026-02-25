@@ -12,6 +12,7 @@
 #include "HoverDroneMovementComponent.h"
 
 #include "UObject/ConstructorHelpers.h"
+#include "HAL/IConsoleManager.h"
 
 #include "InputMappingContext.h"
 #include "EnhancedInputSubsystems.h"
@@ -26,6 +27,13 @@ FAutoConsoleVariableRef CVarDroneSpeedScalar(
 	TEXT("HoverDrone.DroneSpeedScalar"),
 	DroneSpeedScalar,
 	TEXT("Simple scalar on linear acceleration for the drone.\n"),
+	ECVF_Default);
+
+bool GHoverDroneInvertLookY = true;
+FAutoConsoleVariableRef CVarHoverDroneInvertLookY(
+	TEXT("HoverDrone.InvertLookY"),
+	GHoverDroneInvertLookY,
+	TEXT("When true, hover drone pitch look input is inverted for mouse/controller.\n"),
 	ECVF_Default);
 
 AHoverDronePawn::AHoverDronePawn(const FObjectInitializer& ObjectInitializer)
@@ -217,7 +225,8 @@ void AHoverDronePawn::LookUpAccel(float Val)
 		UHoverDroneMovementComponent* const HoverMoveComponent = Cast<UHoverDroneMovementComponent>(GetMovementComponent());
 		if (HoverMoveComponent != nullptr)
 		{
-			FRotator const PitchInput = FRotator(-Val, 0, 0);// FRotator((PC && PC->ShouldInvertPitch()) ? Val : -Val, 0, 0);
+			const float PitchInputValue = GHoverDroneInvertLookY ? Val : -Val;
+			FRotator const PitchInput = FRotator(PitchInputValue, 0, 0);
 			HoverMoveComponent->AddRotationInput(PitchInput);
 		}
 	}

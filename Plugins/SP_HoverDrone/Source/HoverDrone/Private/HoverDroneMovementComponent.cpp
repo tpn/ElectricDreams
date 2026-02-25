@@ -12,16 +12,85 @@
 #include "GameFramework/HUD.h"
 #include "Engine/Canvas.h"
 #include "DisplayDebugHelpers.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/ConfigCacheIni.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(HoverDroneMovementComponent)
 
 #define LOCTEXT_NAMESPACE "HoverDroneMovementComponent"
+
+namespace HoverDroneMovementRate
+{
+	constexpr float MinMultiplier = 1.0e-3f;
+	constexpr float MaxMultiplier = 1.0e3f;
+	constexpr float MinLookRateMultiplier = 1.0e-2f;
+	constexpr float MaxLookRateMultiplier = 1.0e2f;
+
+	float GHoverDroneMovementRateMultiplier = 10.0f;
+	float GHoverDroneLookRateMultiplier = 1.0f;
+	FAutoConsoleVariableRef CVarHoverDroneMovementRateMultiplier(
+		TEXT("HoverDrone.MovementRateMultiplier"),
+		GHoverDroneMovementRateMultiplier,
+		TEXT("Scales HoverDrone X/Y translation responsiveness."),
+		ECVF_Default);
+	FAutoConsoleVariableRef CVarHoverDroneLookRateMultiplier(
+		TEXT("HoverDrone.LookRateMultiplier"),
+		GHoverDroneLookRateMultiplier,
+		TEXT("Scales HoverDrone look/turn responsiveness independently from movement rate."),
+		ECVF_Default);
+
+	float ClampMultiplier(float Value)
+	{
+		return FMath::Clamp(Value, MinMultiplier, MaxMultiplier);
+	}
+
+	void LoadSavedMultiplier()
+	{
+		static bool bLoaded = false;
+		if (bLoaded || GConfig == nullptr)
+		{
+			return;
+		}
+		bLoaded = true;
+
+		float SavedMultiplier = 1.0f;
+		if (GConfig->GetFloat(
+			TEXT("/Script/ElectricDreamsSample.Hotkeys"),
+			TEXT("HoverDroneMovementRateMultiplier"),
+			SavedMultiplier,
+			GGameUserSettingsIni))
+		{
+			const float ClampedSavedMultiplier = ClampMultiplier(SavedMultiplier);
+			GHoverDroneMovementRateMultiplier = ClampedSavedMultiplier;
+			if (IConsoleVariable* MovementRateCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("HoverDrone.MovementRateMultiplier")))
+			{
+				MovementRateCVar->Set(ClampedSavedMultiplier, ECVF_SetByGameSetting);
+			}
+		}
+	}
+
+	float GetMultiplier()
+	{
+		return ClampMultiplier(GHoverDroneMovementRateMultiplier);
+	}
+
+	float GetLookMultiplier()
+	{
+		return FMath::Clamp(
+			GHoverDroneLookRateMultiplier,
+			MinLookRateMultiplier,
+			MaxLookRateMultiplier
+		);
+	}
+}
 
 //UE_DISABLE_OPTIMIZATION
 
 UHoverDroneMovementComponent::UHoverDroneMovementComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	HoverDroneMovementRate::LoadSavedMultiplier();
+
 	MaxSpeed = 30000.f;
 	
 	Acceleration = 5000.f;
@@ -33,7 +102,7 @@ UHoverDroneMovementComponent::UHoverDroneMovementComponent(const FObjectInitiali
 
 	Acceleration_NewModel = 1.5f;
 	Deceleration_NewModel = 3.f;
-	MaxSpeed_NewModel = 650.f;
+	MaxSpeed_NewModel = 1200.f;
 	MaxYawRotSpeed_NewModel = 80.f;
 	MaxPitchRotSpeed_NewModel = 55.f;
 	RotAcceleration_NewModel = 2.f;
@@ -72,7 +141,7 @@ UHoverDroneMovementComponent::UHoverDroneMovementComponent(const FObjectInitiali
 
 	bIgnoreTimeDilation = true;
 
-	DroneSpeedParamIndex = 3;
+	DroneSpeedParamIndex = 5;
 
 	PrimaryComponentTick.bTickEvenWhenPaused = true;
 
@@ -146,8 +215,11 @@ static void LimitControlAccelOnAxis(float& AxisAccel, float AxisPos, float Limit
 
 void UHoverDroneMovementComponent::ApplyControlInputToVelocity_NewModel(float DeltaTime)
 {
+	const float MovementRateMultiplier = HoverDroneMovementRate::GetMultiplier();
 	const FVector ControlVector = GetPendingInputVector();
-	const FVector DesiredVelocity = ControlVector * MaxSpeed_NewModel * DroneSpeedParameters_NewModel[DroneSpeedParamIndex].MaxLinearSpeedScale;
+	FVector DesiredVelocity = ControlVector * MaxSpeed_NewModel * DroneSpeedParameters_NewModel[DroneSpeedParamIndex].MaxLinearSpeedScale;
+	DesiredVelocity.X *= MovementRateMultiplier;
+	DesiredVelocity.Y *= MovementRateMultiplier;
 
 	if (DesiredVelocity.IsNearlyZero())
 	{
@@ -175,28 +247,31 @@ void UHoverDroneMovementComponent::ApplyControlInputToRotation_NewModel(float De
 {
 	// adjust rot accel and clamps for zoom
 	const float FOVAdjScalar = GetInputFOVScale();
+	const float LookRateMultiplier = HoverDroneMovementRate::GetLookMultiplier();
 
-	const float AdjustedMaxYawRotSpeed = MaxYawRotSpeed_NewModel * FOVAdjScalar * DroneSpeedParameters_NewModel[DroneSpeedParamIndex].MaxRotSpeedScale;
-	const float AdjustedMaxPitchRotSpeed = MaxPitchRotSpeed_NewModel * FOVAdjScalar * DroneSpeedParameters_NewModel[DroneSpeedParamIndex].MaxRotSpeedScale;
+	const float AdjustedMaxYawRotSpeed = MaxYawRotSpeed_NewModel * FOVAdjScalar * DroneSpeedParameters_NewModel[DroneSpeedParamIndex].MaxRotSpeedScale * LookRateMultiplier;
+	const float AdjustedMaxPitchRotSpeed = MaxPitchRotSpeed_NewModel * FOVAdjScalar * DroneSpeedParameters_NewModel[DroneSpeedParamIndex].MaxRotSpeedScale * LookRateMultiplier;
+	const float AdjustedRotAccel = RotAcceleration_NewModel * DroneSpeedParameters_NewModel[DroneSpeedParamIndex].RotAccelScale * FOVAdjScalar * LookRateMultiplier;
+	const float AdjustedRotDecel = RotDeceleration_NewModel * DroneSpeedParameters_NewModel[DroneSpeedParamIndex].RotDecelScale * FOVAdjScalar * LookRateMultiplier;
 
 	const float DesiredYawVelocity = RotationInput.Yaw * AdjustedMaxYawRotSpeed;
-	const float DesiredPitchVelocity = RotationInput.Pitch * AdjustedMaxYawRotSpeed;
+	const float DesiredPitchVelocity = RotationInput.Pitch * AdjustedMaxPitchRotSpeed;
 
 	if (DesiredYawVelocity == 0.f)
 	{
-		YawVelInterpolator_IIR.InterpSpeed = RotDeceleration_NewModel * DroneSpeedParameters_NewModel[DroneSpeedParamIndex].RotDecelScale * FOVAdjScalar;
+		YawVelInterpolator_IIR.InterpSpeed = AdjustedRotDecel;
 	}
 	else
 	{
-		YawVelInterpolator_IIR.InterpSpeed = RotAcceleration_NewModel * DroneSpeedParameters_NewModel[DroneSpeedParamIndex].RotAccelScale * FOVAdjScalar;
+		YawVelInterpolator_IIR.InterpSpeed = AdjustedRotAccel;
 	}
 	if (DesiredPitchVelocity == 0.f)
 	{
-		PitchVelInterpolator_IIR.InterpSpeed = RotDeceleration_NewModel * DroneSpeedParameters_NewModel[DroneSpeedParamIndex].RotDecelScale * FOVAdjScalar;
+		PitchVelInterpolator_IIR.InterpSpeed = AdjustedRotDecel;
 	}
 	else
 	{
-		PitchVelInterpolator_IIR.InterpSpeed = RotAcceleration_NewModel * DroneSpeedParameters_NewModel[DroneSpeedParamIndex].RotAccelScale * FOVAdjScalar;
+		PitchVelInterpolator_IIR.InterpSpeed = AdjustedRotAccel;
 	}
 
 	const float YawVel = YawVelInterpolator_IIR.Eval(DesiredYawVelocity, DeltaTime);
@@ -225,6 +300,9 @@ void UHoverDroneMovementComponent::ApplyControlInputToVelocity(float DeltaTime)
 	//UE_LOG(LogHoverDrone, Display, TEXT("%s"), *MovementAccelFactor.ToCompactString());
 	ControlAcceleration *= MovementAccelFactor;
 	ControlAcceleration *= DroneSpeedScalar;
+	const float MovementRateMultiplier = HoverDroneMovementRate::GetMultiplier();
+	ControlAcceleration.X *= MovementRateMultiplier;
+	ControlAcceleration.Y *= MovementRateMultiplier;
 	
 	bool bMaintainHeight = bMaintainHoverHeight;
 	if (ControlAcceleration.Z != 0.f)
@@ -374,10 +452,11 @@ void UHoverDroneMovementComponent::ApplyControlInputToRotation(float DeltaTime)
 
 	// adjust rot accel and clamps for zoom
 	float const FOVAdjScalar = GetInputFOVScale();
-	float const AdjustedMaxYawRotSpeed = (MaxYawRotSpeed) * FOVAdjScalar * DroneSpeedParameters[DroneSpeedParamIndex].MaxRotSpeedScale;
-	float const AdjustedMaxPitchRotSpeed = (MaxPitchRotSpeed) * FOVAdjScalar * DroneSpeedParameters[DroneSpeedParamIndex].MaxRotSpeedScale;
-	float const AdjustedRotAccel = (RotAcceleration) * FOVAdjScalar * DroneSpeedParameters[DroneSpeedParamIndex].RotAccelScale;
-	float const AdjustedRotDecel = (RotDeceleration) * FOVAdjScalar * DroneSpeedParameters[DroneSpeedParamIndex].RotDecelScale;
+	const float LookRateMultiplier = HoverDroneMovementRate::GetLookMultiplier();
+	float const AdjustedMaxYawRotSpeed = (MaxYawRotSpeed) * FOVAdjScalar * DroneSpeedParameters[DroneSpeedParamIndex].MaxRotSpeedScale * LookRateMultiplier;
+	float const AdjustedMaxPitchRotSpeed = (MaxPitchRotSpeed) * FOVAdjScalar * DroneSpeedParameters[DroneSpeedParamIndex].MaxRotSpeedScale * LookRateMultiplier;
+	float const AdjustedRotAccel = (RotAcceleration) * FOVAdjScalar * DroneSpeedParameters[DroneSpeedParamIndex].RotAccelScale * LookRateMultiplier;
+	float const AdjustedRotDecel = (RotDeceleration) * FOVAdjScalar * DroneSpeedParameters[DroneSpeedParamIndex].RotDecelScale * LookRateMultiplier;
 
 	const float FixedTimeStep = .008f;
 	for (float RemainingTime = DeltaTime; RemainingTime > 0.0f; RemainingTime -= FixedTimeStep)
@@ -906,6 +985,8 @@ void UHoverDroneMovementComponent::DrawDebug(UCanvas* Canvas, float& YL, float& 
 		DebugString.Appendf(TEXT("MaxSpeedHeight: %f\n"), MaxSpeedHeight);
 		DebugString.Appendf(TEXT("MaxSpeedHeightMultiplier: %f\n"), MaxSpeedHeightMultiplier);
 		DebugString.Appendf(TEXT("DroneSpeedScalar: %f\n"), DroneSpeedScalar);
+		DebugString.Appendf(TEXT("MovementRateMultiplier: %f\n"), HoverDroneMovementRate::GetMultiplier());
+		DebugString.Appendf(TEXT("EffectiveLookRateMultiplier: %f\n"), HoverDroneMovementRate::GetLookMultiplier());
 		
 		DebugString.Appendf(TEXT("MovementInput: X=%.2f Y=%.2f Z=%.2f\n"), InputVector.X, InputVector.Y, InputVector.Z);
 		DebugString.Appendf(TEXT("MeasuredVelocity: X=%.2f Y=%.2f Z=%.2f\n"), MeasuredVelocity.X, MeasuredVelocity.Y, MeasuredVelocity.Z);

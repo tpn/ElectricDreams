@@ -24,7 +24,8 @@ public class ElectricDreamsSample : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[] {
 			"RHI",
-			"AudioModulation"
+			"AudioModulation",
+			"HeadMountedDisplay"
 		});
 
 		// Uncomment if you are using Slate UI

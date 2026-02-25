@@ -17,4 +17,4 @@ class FElectricDreamsSampleGameModule : public FDefaultGameModuleImpl
 	}
 };
 
-IMPLEMENT_PRIMARY_GAME_MODULE(FElectricDreamsSampleGameModule, ElectricDreamsSample, "ElectricDreams");
+IMPLEMENT_PRIMARY_GAME_MODULE(FElectricDreamsSampleGameModule, ElectricDreamsSample, "ElectricDreamsSample");

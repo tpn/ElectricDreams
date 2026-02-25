@@ -35,6 +35,8 @@ public:
 	virtual bool IsLoading() const { return false; }
 
 protected:
+	void ApplyTurnInputScaled(float Rate);
+	void ApplyLookInputScaled(float Rate);
 
 	/** Name of the MovementComponent.  Use this name if you want to use a different class (with ObjectInitializer.SetDefaultSubobjectClass). */
 	static const FName CameraComponentName;
