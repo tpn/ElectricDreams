@@ -11,7 +11,6 @@
 
 #include "HoverDroneMovementComponent.h"
 
-#include "UObject/ConstructorHelpers.h"
 #include "HAL/IConsoleManager.h"
 
 #include "InputMappingContext.h"
@@ -42,20 +41,17 @@ AHoverDronePawn::AHoverDronePawn(const FObjectInitializer& ObjectInitializer)
 		.SetDefaultSubobjectClass<UCameraComponent>(AHoverDronePawnBase::CameraComponentName)
 	)
 {
-#define INPUT_CONTENT_PATH "/SP_HoverDrone/Input"
-	// Default input mapping and input actions
-	static ConstructorHelpers::FObjectFinder<UInputMappingContext>	HoverDroneInputMappingContext		(TEXT(INPUT_CONTENT_PATH "/IM_HoverDrone.IM_HoverDrone"));
-	static ConstructorHelpers::FObjectFinder<UInputAction>			Move_Asset							(TEXT(INPUT_CONTENT_PATH "/IA_HoverDrone_Move.IA_HoverDrone_Move"));
-	static ConstructorHelpers::FObjectFinder<UInputAction>			Look_Asset							(TEXT(INPUT_CONTENT_PATH "/IA_HoverDrone_Look.IA_HoverDrone_Look"));
-	static ConstructorHelpers::FObjectFinder<UInputAction>			ChangeAltitude_Asset				(TEXT(INPUT_CONTENT_PATH "/IA_HoverDrone_ChangeAltitude.IA_HoverDrone_ChangeAltitude"));
-	static ConstructorHelpers::FObjectFinder<UInputAction>			ChangeSpeed_Asset					(TEXT(INPUT_CONTENT_PATH "/IA_HoverDrone_ChangeSpeed.IA_HoverDrone_ChangeSpeed"));
-#undef INPUT_CONTENT_PATH
+	// Avoid hard constructor errors when optional plugin input assets are missing.
+	InputMappingContext = LoadObject<UInputMappingContext>(nullptr, TEXT("/SP_HoverDrone/Input/IM_HoverDrone.IM_HoverDrone"));
+	MoveAction = LoadObject<UInputAction>(nullptr, TEXT("/SP_HoverDrone/Input/IA_HoverDrone_Move.IA_HoverDrone_Move"));
+	LookAction = LoadObject<UInputAction>(nullptr, TEXT("/SP_HoverDrone/Input/IA_HoverDrone_Look.IA_HoverDrone_Look"));
+	ChangeAltitudeAction = LoadObject<UInputAction>(nullptr, TEXT("/SP_HoverDrone/Input/IA_HoverDrone_ChangeAltitude.IA_HoverDrone_ChangeAltitude"));
+	ChangeSpeedAction = LoadObject<UInputAction>(nullptr, TEXT("/SP_HoverDrone/Input/IA_HoverDrone_ChangeSpeed.IA_HoverDrone_ChangeSpeed"));
 
-	InputMappingContext = HoverDroneInputMappingContext.Object;
-	MoveAction = Move_Asset.Object;
-	LookAction = Look_Asset.Object;
-	ChangeAltitudeAction = ChangeAltitude_Asset.Object;
-	ChangeSpeedAction = ChangeSpeed_Asset.Object;
+	if (InputMappingContext == nullptr || MoveAction == nullptr || LookAction == nullptr || ChangeAltitudeAction == nullptr || ChangeSpeedAction == nullptr)
+	{
+		UE_LOG(LogHoverDrone, Warning, TEXT("SP_HoverDrone input assets are missing. Drone Enhanced Input bindings will be partially or fully disabled."));
+	}
 
 	SetCanBeDamaged(false);
 	bAddDefaultMovementBindings = false;
@@ -73,10 +69,22 @@ void AHoverDronePawn::SetupPlayerInputComponent(UInputComponent* InInputComponen
 {
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InInputComponent))
 	{
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AHoverDronePawn::MoveActionBinding);
-		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AHoverDronePawn::LookActionBinding);
-		EnhancedInputComponent->BindAction(ChangeAltitudeAction, ETriggerEvent::Triggered, this, &AHoverDronePawn::ChangeAltitudeActionBinding);
-		EnhancedInputComponent->BindAction(ChangeSpeedAction, ETriggerEvent::Triggered, this, &AHoverDronePawn::ChangeSpeedActionBinding);
+		if (MoveAction != nullptr)
+		{
+			EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AHoverDronePawn::MoveActionBinding);
+		}
+		if (LookAction != nullptr)
+		{
+			EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AHoverDronePawn::LookActionBinding);
+		}
+		if (ChangeAltitudeAction != nullptr)
+		{
+			EnhancedInputComponent->BindAction(ChangeAltitudeAction, ETriggerEvent::Triggered, this, &AHoverDronePawn::ChangeAltitudeActionBinding);
+		}
+		if (ChangeSpeedAction != nullptr)
+		{
+			EnhancedInputComponent->BindAction(ChangeSpeedAction, ETriggerEvent::Triggered, this, &AHoverDronePawn::ChangeSpeedActionBinding);
+		}
 	}
 	else
 	{

@@ -1,7 +1,8 @@
 # HOTKEYS
 
-## ElectricDreams (`C:\src\UE\ElectricDreams`)
+## ElectricDreams (`D:\src\ElectricDreams`)
 
+- VR now starts `OFF` by default. Use `F10` or `Menu` (`Gamepad_Special_Right`) to toggle VR on/off at runtime.
 - `PageDown` or `RB` or `A`: Cycle to next level.
 - `PageUp` or `LB` or `X`: Cycle to previous level.
 - `F7` or `DPad Up`: Cycle to next lighting preset (`Dawn -> Midday -> Dusk -> Night`).

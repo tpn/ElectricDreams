@@ -41,6 +41,8 @@ bool UEDSMixManagerSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 
 void UEDSMixManagerSubsystem::PostInitialize()
 {
+	Super::PostInitialize();
+
 	if (const UEDSAudioSettings* EDSAudioSettings = GetDefault<UEDSAudioSettings>())
 	{
 		if (UObject* ObjPath = EDSAudioSettings->DefaultControlBusMix.TryLoad())
@@ -71,6 +73,8 @@ void UEDSMixManagerSubsystem::PostInitialize()
 
 void UEDSMixManagerSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {
+	Super::OnWorldBeginPlay(InWorld);
+
 	if (const UWorld* World = InWorld.GetWorld())
 	{
 		// Activate the default base mix
